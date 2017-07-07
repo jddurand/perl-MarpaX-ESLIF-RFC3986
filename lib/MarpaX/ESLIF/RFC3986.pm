@@ -41,15 +41,50 @@ our $_G = MarpaX::ESLIF::Grammar->new($_ESLIF, $_BNF);
 sub new {
   my ($pkg, $input, $encoding) = @_;
 
-  bless _parse($input, $encoding), $pkg
+  bless _hash($input, $encoding), $pkg
 }
 
-sub _parse {
+our %_REL2HASH =
+    (
+     'relative ref'  => 'ref',
+     'relative part' => 'part',
+     'URI query'     => 'query',
+     'URI fragment'  => 'fragment',
+     'authority'     => 'authority'
+    );
+
+our %_URI2HASH =
+    (
+     'URI'           => 'URI',
+     'URI query'     => 'query',
+     'URI fragment'  => 'fragment',
+     'authority'     => 'authority'
+    );
+
+sub _hash {
     my ($input, $encoding) = @_;
 
+    my $recognizerInterface = MarpaX::ESLIF::RFC3986::RecognizerInterface->new(data => $input, encoding => $encoding);
+    my $recognizer = MarpaX::ESLIF::Recognizer->new($_G, $recognizerInterface);
+    $recognizer->scan();
+
     my $valueInterface = MarpaX::ESLIF::RFC3986::ValueInterface->new();
-    $_G->parse(MarpaX::ESLIF::RFC3986::RecognizerInterface->new(data => $input, encoding => $encoding), $valueInterface);
-    { parse => $valueInterface->getResult }
+    my $value = MarpaX::ESLIF::Value->new($recognizer, $valueInterface);
+
+    $value->value();
+    my $result = $valueInterface->getResult;
+
+    my %rc;
+    my $hash =  $result->{is_URI} ? \%_URI2HASH : \%_REL2HASH;
+    map { $rc{$hash->{$_}} = eval {
+        my ($pos, $length) = $recognizer->lastCompletedLocation($_);
+        #
+        # Take pos and length are in bytes
+        #
+        bytes::substr($input, $pos, $length);
+          }
+    } keys %{$hash};
+    \%rc
 }
 
 1;
@@ -60,30 +95,30 @@ __DATA__
 #
 # Reference: https://tools.ietf.org/html/rfc3986#appendix-A
 #
-<URI>                    ::= <scheme> ":" <hier part> <URI query> <URI fragment> action => URI
-<URI query>              ::= "?" <query>                                         action => URI_query
-<URI query>              ::=                                                     action => URI_query
-<URI fragment>           ::= "#" <fragment>                                      action => URI_fragment
-<URI fragment>           ::=                                                     action => URI_fragment
+<URI>                    ::= <scheme> ":" <hier part> <URI query> <URI fragment>
+<URI query>              ::= "?" <query>
+<URI query>              ::=
+<URI fragment>           ::= "#" <fragment>
+<URI fragment>           ::=
 
-<hier part>              ::= "//" <authority> <path abempty>                     action => hier_part
-                           | <path absolute>                                     action => hier_part
-                           | <path rootless>                                     action => hier_part
-                           | <path empty>                                        action => hier_part
+<hier part>              ::= "//" <authority> <path abempty>
+                           | <path absolute>
+                           | <path rootless>
+                           | <path empty>
 
-<URI reference>          ::= <URI>                                               action => URI_reference
-                           | <relative ref>                                      action => URI_reference
+<URI reference>          ::= <URI>             action => URI
+                           | <relative ref>    action => relative_ref
 
 <absolute URI>           ::= <scheme> ":" <hier part> <URI query>
 
-<relative ref>           ::= <relative part> <URI query> <URI fragment>          action => relative_ref
+<relative ref>           ::= <relative part> <URI query> <URI fragment>
 
-<relative part>          ::= "//" <authority> <path abempty>                     action => relative_part
-                           | <path absolute>                                     action => relative_part
-                           | <path noscheme>                                     action => relative_part
-                           | <path empty>                                        action => relative_part
+<relative part>          ::= "//" <authority> <path abempty>
+                           | <path absolute>
+                           | <path noscheme>
+                           | <path empty>
 
-<scheme>                 ::= <ALPHA> <scheme trailer>                            action => scheme
+<scheme>                 ::= <ALPHA> <scheme trailer>
 <scheme trailer unit>    ::= <ALPHA> | <DIGIT> | "+" | "-" | "."
 <scheme trailer>         ::= <scheme trailer unit>*
 

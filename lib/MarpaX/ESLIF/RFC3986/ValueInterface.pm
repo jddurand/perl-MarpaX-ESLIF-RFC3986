@@ -36,7 +36,7 @@ Instantiate a new value interface object.
 sub new {
     my ($pkg, %options) = @_;
 
-    bless { result => undef, %options }, $pkg
+    bless { result => {}, %options }, $pkg
 }
 
 # ----------------
@@ -91,7 +91,7 @@ Returns the current parse tree value.
 
 =cut
 
-sub getResult { $_[0]->{result} }
+sub getResult { use Data::Dumper; print STDERR Dumper($_[0]->{result}); $_[0]->{result} }
 
 =head3 setResult
 
@@ -110,12 +110,7 @@ L<MarpaX::ESLIF::RFC3986>
 #
 # Grammar actions
 # ---------------
-sub URI           { return { URI           => $_[1] } }
-sub URI_query     { return { URI_query     => $_[1] } }
-sub URI_fragment  { return { URI_fragment  => $_[1] } }
-sub hier_part     { return { hier_part     => $_[1] } }
-sub URI_reference { return { URI_reference => $_[1] } }
-sub relative_ref  { return { relative_ref  => $_[1] } }
-sub relative_part { return { relative_part => $_[1] } }
+sub URI           { { is_URI => 1 } }
+sub relative_ref  { { is_URI => 0 } }
 
 1;
