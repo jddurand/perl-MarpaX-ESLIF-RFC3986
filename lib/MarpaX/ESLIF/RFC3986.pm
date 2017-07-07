@@ -63,36 +63,36 @@ __DATA__
 # Reference: https://tools.ietf.org/html/rfc3986#appendix-A
 #
 <URI>                    ::= <scheme> ":" <hier part> <URI query> <URI fragment>             action => URI
-<URI query>              ::= "?" <query>                                                     action => URI_query
-<URI query>              ::=                                                                 action => URI_query
-<URI fragment>           ::= "#" <fragment>                                                  action => URI_fragment
-<URI fragment>           ::=                                                                 action => URI_fragment
+<URI query>              ::= "?" <query>                                                     action => query
+<URI query>              ::=                                                                 action => query
+<URI fragment>           ::= "#" <fragment>                                                  action => fragment
+<URI fragment>           ::=                                                                 action => fragment
 
 <hier part>              ::= "//" <authority> <path abempty>                                 action => hier_part
                            | <path absolute>                                                 action => hier_part
                            | <path rootless>                                                 action => hier_part
                            | <path empty>                                                    action => hier_part
 
-<URI reference>          ::= <URI>                                                           action => URI_reference
-                           | <relative ref>                                                  action => URI_reference
+<URI reference>          ::= <URI>                                                           action => reference
+                           | <relative ref>                                                  action => reference
 
-<absolute URI>           ::= <scheme> ":" <hier part> <URI query>                            action => absolute_URI
+<absolute URI>           ::= <scheme> ":" <hier part> <URI query>                            action => absolute
 
-<relative ref>           ::= <relative part> <URI query> <URI fragment>                      action => relative_ref
+<relative ref>           ::= <relative part> <URI query> <URI fragment>                      action => relative
 
-<relative part>          ::= "//" <authority> <path abempty>                                 action => relative_part
-                           | <path absolute>                                                 action => relative_part
-                           | <path noscheme>                                                 action => relative_part
-                           | <path empty>                                                    action => relative_part
+<relative part>          ::= "//" <authority> <path abempty>                                 action => part
+                           | <path absolute>                                                 action => part
+                           | <path noscheme>                                                 action => part
+                           | <path empty>                                                    action => part
 
 <scheme>                 ::= <ALPHA> <scheme trailer>                                        action => scheme
 <scheme trailer unit>    ::= <ALPHA> | <DIGIT> | "+" | "-" | "."
 <scheme trailer>         ::= <scheme trailer unit>*
 
-<authority userinfo>     ::= <userinfo> "@"                                                  action => authority_userinfo
-<authority userinfo>     ::=                                                                 action => authority_userinfo
-<authority port>         ::= ":" <port>                                                      action => authority_port
-<authority port>         ::=                                                                 action => authority_port
+<authority userinfo>     ::= <userinfo> "@"
+<authority userinfo>     ::=
+<authority port>         ::= ":" <port>
+<authority port>         ::=
 <authority>              ::= <authority userinfo> <host> <authority port>                    action => authority
 <userinfo unit>          ::= <unreserved> | <pct encoded> | <sub delims> | ":"
 <userinfo>               ::= <userinfo unit>*                                                action => userinfo
@@ -109,7 +109,7 @@ __DATA__
 <port>                   ::= <DIGIT>*                                                        action => port
 
 <IP literal interior>    ::= <IPv6address> | <IPvFuture>
-<IP literal>             ::= "[" <IP literal interior> "]"
+<IP literal>             ::= "[" <IP literal interior> "]"                                   action => IP_literal
 
 <IPvFuture>              ::= "v" <HEXDIG many> "." <IPvFuture trailer>
 <IPvFuture trailer unit> ::= <unreserved> | <sub delims> | ":"
@@ -158,7 +158,7 @@ __DATA__
                            | <HEXDIG> <HEXDIG> <HEXDIG> <HEXDIG>
 
 <ls32>                   ::= <h16> ":" <h16> | <IPv4address>
-<IPv4address>            ::= <dec octet> "." <dec octet> "." <dec octet> "." <dec octet>
+<IPv4address>            ::= <dec octet> "." <dec octet> "." <dec octet> "." <dec octet>   action => IPv4address
 
 <dec octet>              ::= <DIGIT>                     # 0-9
                            | [\x{31}-\x{39}] <DIGIT>     # 10-99
@@ -167,13 +167,13 @@ __DATA__
                            | "25" [\x{30}-\x{35}]        # 250-255
 
 <reg name unit>          ::= <unreserved> | <pct encoded> | <sub delims>
-<reg name>               ::= <reg name unit>*
+<reg name>               ::= <reg name unit>*                                               action => reg_name
 
-<path>                   ::= <path abempty>    # begins with "/" or is empty
-                           | <path absolute>   # begins with "/" but not "//"
-                           | <path noscheme>   # begins with a non-colon segment
-                           | <path rootless>   # begins with a segment
-                           | <path empty>      # zero characters
+<path>                   ::= <path abempty>              # begins with "/" or is empty
+                           | <path absolute>             # begins with "/" but not "//"
+                           | <path noscheme>             # begins with a non-colon segment
+                           | <path rootless>             # begins with a segment
+                           | <path empty>                # zero characters
 
 <path abempty unit>      ::= "/" <segment>
 <path abempty>           ::= <path abempty unit>*

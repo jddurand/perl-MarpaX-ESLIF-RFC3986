@@ -113,25 +113,27 @@ L<MarpaX::ESLIF::RFC3986>
 #
 # ... Special actions so that setResult gets $self->{work}
 #
-sub URI_reference { $_[0]->{work} }
+sub reference { $_[0]->{work} }
 #
 # ... All other actions are just bookkeeping current concatenation into $self->{workwork}
 #
 our @_ACTIONS = (
                  'URI',
-                 'URI_query',
-                 'URI_fragment',
+                 'query',
+                 'fragment',
                  'hier_part',
-                 'absolute_URI',
-                 'relative_ref',
-                 'relative_part',
+                 'absolute',
+                 'relative',
+                 'part',
                  'scheme',
-                 'authority_userinfo',
-                 'authority_port',
                  'authority',
                  'userinfo',
                  'host',
                  'port',
+                 'path',
+                 'IP_literal',
+                 'IPv4address',
+                 'reg_name',
                 );
 foreach my $action (@_ACTIONS) {
   my $stub = "sub $action {
