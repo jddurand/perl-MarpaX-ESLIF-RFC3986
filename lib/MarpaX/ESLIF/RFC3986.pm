@@ -62,40 +62,40 @@ __DATA__
 #
 # Reference: https://tools.ietf.org/html/rfc3986#appendix-A
 #
-<URI>                    ::= <scheme> ":" <hier part> <URI query> <URI fragment>
-<URI query>              ::= "?" <query>
-<URI query>              ::=
-<URI fragment>           ::= "#" <fragment>
-<URI fragment>           ::=
+<URI>                    ::= <scheme> ":" <hier part> <URI query> <URI fragment>             action => URI
+<URI query>              ::= "?" <query>                                                     action => URI_query
+<URI query>              ::=                                                                 action => URI_query
+<URI fragment>           ::= "#" <fragment>                                                  action => URI_fragment
+<URI fragment>           ::=                                                                 action => URI_fragment
 
-<hier part>              ::= "//" <authority> <path abempty>
-                           | <path absolute>
-                           | <path rootless>
-                           | <path empty>
+<hier part>              ::= "//" <authority> <path abempty>                                 action => hier_part
+                           | <path absolute>                                                 action => hier_part
+                           | <path rootless>                                                 action => hier_part
+                           | <path empty>                                                    action => hier_part
 
-<URI reference>          ::= <URI>             action => URI
-                           | <relative ref>    action => relative_ref
+<URI reference>          ::= <URI>                                                           action => URI_reference
+                           | <relative ref>                                                  action => URI_reference
 
-<absolute URI>           ::= <scheme> ":" <hier part> <URI query>
+<absolute URI>           ::= <scheme> ":" <hier part> <URI query>                            action => absolute_URI
 
-<relative ref>           ::= <relative part> <URI query> <URI fragment>
+<relative ref>           ::= <relative part> <URI query> <URI fragment>                      action => relative_ref
 
-<relative part>          ::= "//" <authority> <path abempty>
-                           | <path absolute>
-                           | <path noscheme>
-                           | <path empty>
+<relative part>          ::= "//" <authority> <path abempty>                                 action => relative_part
+                           | <path absolute>                                                 action => relative_part
+                           | <path noscheme>                                                 action => relative_part
+                           | <path empty>                                                    action => relative_part
 
-<scheme>                 ::= <ALPHA> <scheme trailer>                   action => scheme
+<scheme>                 ::= <ALPHA> <scheme trailer>                                        action => scheme
 <scheme trailer unit>    ::= <ALPHA> | <DIGIT> | "+" | "-" | "."
 <scheme trailer>         ::= <scheme trailer unit>*
 
-<authority userinfo>     ::= <userinfo> "@"
-<authority userinfo>     ::=
-<authority port>         ::= ":" <port>
-<authority port>         ::=
-<authority>              ::= <authority userinfo> <host> <authority port> action => authority
+<authority userinfo>     ::= <userinfo> "@"                                                  action => authority_userinfo
+<authority userinfo>     ::=                                                                 action => authority_userinfo
+<authority port>         ::= ":" <port>                                                      action => authority_port
+<authority port>         ::=                                                                 action => authority_port
+<authority>              ::= <authority userinfo> <host> <authority port>                    action => authority
 <userinfo unit>          ::= <unreserved> | <pct encoded> | <sub delims> | ":"
-<userinfo>               ::= <userinfo unit>*
+<userinfo>               ::= <userinfo unit>*                                                action => userinfo
 #
 # The syntax rule for host is ambiguous because it does not completely
 # distinguish between an IPv4address and a reg-name.  In order to
@@ -103,10 +103,10 @@ __DATA__
 # If host matches the rule for IPv4address, then it should be
 # considered an IPv4 address literal and not a reg-name.
 #
-<host>                   ::= <IP literal>            rank =>  0
-                           | <IPv4address>           rank => -1
-                           | <reg name>              rank => -2
-<port>                   ::= <DIGIT>*
+<host>                   ::= <IP literal>            rank =>  0                              action => host
+                           | <IPv4address>           rank => -1                              action => host
+                           | <reg name>              rank => -2                              action => host
+<port>                   ::= <DIGIT>*                                                        action => port
 
 <IP literal interior>    ::= <IPv6address> | <IPvFuture>
 <IP literal>             ::= "[" <IP literal interior> "]"

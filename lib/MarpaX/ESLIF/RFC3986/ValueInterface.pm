@@ -91,7 +91,7 @@ Returns the current parse tree value.
 
 =cut
 
-sub getResult { use Data::Dumper; print STDERR Dumper($_[0]->{result}); $_[0]->{result} }
+sub getResult { $_[0]->{result} }
 
 =head3 setResult
 
@@ -110,9 +110,35 @@ L<MarpaX::ESLIF::RFC3986>
 #
 # Grammar actions
 # ---------------
-sub URI           { $_[0]->{work} }
-sub relative_ref  { $_[0]->{work} }
-sub scheme        { print STDERR "... scheme $_[1]\n"; $_[0]->{work}->{scheme} = $_[1] }
-sub authority     { $_[0]->{work}->{authority} = $_[1] }
+#
+# ... Special actions so that setResult gets $self->{work}
+#
+sub URI_reference { $_[0]->{work} }
+#
+# ... All other actions are just bookkeeping current concatenation into $self->{workwork}
+#
+our @_ACTIONS = (
+                 'URI',
+                 'URI_query',
+                 'URI_fragment',
+                 'hier_part',
+                 'absolute_URI',
+                 'relative_ref',
+                 'relative_part',
+                 'scheme',
+                 'authority_userinfo',
+                 'authority_port',
+                 'authority',
+                 'userinfo',
+                 'host',
+                 'port',
+                );
+foreach my $action (@_ACTIONS) {
+  my $stub = "sub $action {
+                my \$self = shift;
+                \$self->{work}->{'$action'} = join('', map { \$_ // '' } \@_)
+              }";
+  eval $stub
+}
 
 1;
