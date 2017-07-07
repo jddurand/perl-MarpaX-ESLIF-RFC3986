@@ -36,7 +36,7 @@ Instantiate a new value interface object.
 sub new {
     my ($pkg, %options) = @_;
 
-    bless { result => {}, %options }, $pkg
+    bless { result => undef, work => {}, %options }, $pkg
 }
 
 # ----------------
@@ -110,7 +110,9 @@ L<MarpaX::ESLIF::RFC3986>
 #
 # Grammar actions
 # ---------------
-sub URI           { { is_URI => 1 } }
-sub relative_ref  { { is_URI => 0 } }
+sub URI           { $_[0]->{work} }
+sub relative_ref  { $_[0]->{work} }
+sub scheme        { print STDERR "... scheme $_[1]\n"; $_[0]->{work}->{scheme} = $_[1] }
+sub authority     { $_[0]->{work}->{authority} = $_[1] }
 
 1;

@@ -41,56 +41,23 @@ our $_G = MarpaX::ESLIF::Grammar->new($_ESLIF, $_BNF);
 sub new {
   my ($pkg, $input, $encoding) = @_;
 
-  bless _hash($input, $encoding), $pkg
+  bless _parse($input, $encoding), $pkg
 }
 
-our %_REL2HASH =
-    (
-     'relative ref'  => 'ref',
-     'relative part' => 'part',
-     'URI query'     => 'query',
-     'URI fragment'  => 'fragment',
-     'authority'     => 'authority'
-    );
-
-our %_URI2HASH =
-    (
-     'URI'           => 'URI',
-     'URI query'     => 'query',
-     'URI fragment'  => 'fragment',
-     'authority'     => 'authority'
-    );
-
-sub _hash {
+sub _parse {
     my ($input, $encoding) = @_;
 
     my $recognizerInterface = MarpaX::ESLIF::RFC3986::RecognizerInterface->new(data => $input, encoding => $encoding);
-    my $recognizer = MarpaX::ESLIF::Recognizer->new($_G, $recognizerInterface);
-    $recognizer->scan();
-
     my $valueInterface = MarpaX::ESLIF::RFC3986::ValueInterface->new();
-    my $value = MarpaX::ESLIF::Value->new($recognizer, $valueInterface);
 
-    $value->value();
-    my $result = $valueInterface->getResult;
+    $_G->parse($recognizerInterface, $valueInterface);
 
-    my %rc;
-    my $hash =  $result->{is_URI} ? \%_URI2HASH : \%_REL2HASH;
-    map { $rc{$hash->{$_}} = eval {
-        my ($pos, $length) = $recognizer->lastCompletedLocation($_);
-        #
-        # Take pos and length are in bytes
-        #
-        bytes::substr($input, $pos, $length);
-          }
-    } keys %{$hash};
-    \%rc
+    $valueInterface->getResult
 }
 
 1;
 
 __DATA__
-:default ::= action => ::shift
 :start ::= <URI reference>
 #
 # Reference: https://tools.ietf.org/html/rfc3986#appendix-A
@@ -118,7 +85,7 @@ __DATA__
                            | <path noscheme>
                            | <path empty>
 
-<scheme>                 ::= <ALPHA> <scheme trailer>
+<scheme>                 ::= <ALPHA> <scheme trailer>                   action => scheme
 <scheme trailer unit>    ::= <ALPHA> | <DIGIT> | "+" | "-" | "."
 <scheme trailer>         ::= <scheme trailer unit>*
 
@@ -126,7 +93,7 @@ __DATA__
 <authority userinfo>     ::=
 <authority port>         ::= ":" <port>
 <authority port>         ::=
-<authority>              ::= <authority userinfo> <host> <authority port>
+<authority>              ::= <authority userinfo> <host> <authority port> action => authority
 <userinfo unit>          ::= <unreserved> | <pct encoded> | <sub delims> | ":"
 <userinfo>               ::= <userinfo unit>*
 #
