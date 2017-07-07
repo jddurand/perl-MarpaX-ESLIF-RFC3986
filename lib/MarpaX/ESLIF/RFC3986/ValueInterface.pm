@@ -107,4 +107,15 @@ L<MarpaX::ESLIF::RFC3986>
 
 =cut
 
+#
+# Grammar actions
+# ---------------
+sub URI           { return { URI           => $_[1] } }
+sub URI_query     { return { URI_query     => $_[1] } }
+sub URI_fragment  { return { URI_fragment  => $_[1] } }
+sub hier_part     { return { hier_part     => $_[1] } }
+sub URI_reference { return { URI_reference => $_[1] } }
+sub relative_ref  { return { relative_ref  => $_[1] } }
+sub relative_part { return { relative_part => $_[1] } }
+
 1;
