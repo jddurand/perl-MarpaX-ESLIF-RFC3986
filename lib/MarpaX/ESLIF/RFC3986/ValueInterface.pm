@@ -67,7 +67,7 @@ Returns a true or a false value, indicating if valuation should allow ambiguous 
 
 =cut
 
-sub isWithAmbiguous    { 0 }  # Allow ambiguous parse ?
+sub isWithAmbiguous    { 1 }  # Allow ambiguous parse ?
 
 =head3 isWithNull
 
@@ -133,7 +133,11 @@ our @_ACTIONS = (
                  'path',
                  'IP_literal',
                  'IPv4address',
+                 'IPv6address',
+                 'IPv6addrz',
+                 'IPvFuture',
                  'reg_name',
+                 'zone',
                 );
 foreach my $action (@_ACTIONS) {
   my $stub = "sub $action {

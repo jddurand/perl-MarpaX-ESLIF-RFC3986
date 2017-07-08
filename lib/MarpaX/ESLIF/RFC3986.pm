@@ -50,6 +50,17 @@ sub _parse {
     my $recognizerInterface = MarpaX::ESLIF::RFC3986::RecognizerInterface->new(data => $input, encoding => $encoding);
     my $valueInterface = MarpaX::ESLIF::RFC3986::ValueInterface->new();
 
+    if (0) {
+        my $recognizer = MarpaX::ESLIF::Recognizer->new($_G, $recognizerInterface);
+        $recognizer->scan();
+        my $value = MarpaX::ESLIF::Value->new($recognizer, $valueInterface);
+        my $i = 0;
+        while ($value->value() > 0) {
+            use Data::Dumper;
+            print STDERR "VALUE No " . ++$i . ":\n" . Dumper($valueInterface->getResult);
+        }
+    }
+
     $_G->parse($recognizerInterface, $valueInterface);
 
     $valueInterface->getResult
@@ -61,6 +72,7 @@ __DATA__
 :start ::= <URI reference>
 #
 # Reference: https://tools.ietf.org/html/rfc3986#appendix-A
+# Reference: https://tools.ietf.org/html/rfc6874
 #
 <URI>                    ::= <scheme> ":" <hier part> <URI query> <URI fragment>             action => URI
 <URI query>              ::= "?" <query>                                                     action => query
@@ -108,29 +120,32 @@ __DATA__
                            | <reg name>              rank => -2                              action => host
 <port>                   ::= <DIGIT>*                                                        action => port
 
-<IP literal interior>    ::= <IPv6address> | <IPvFuture>
+<IP literal interior>    ::= <IPv6address> | <IPv6addrz> | <IPvFuture>
 <IP literal>             ::= "[" <IP literal interior> "]"                                   action => IP_literal
+<ZoneID interior>        ::= <unreserved>  | <pct encoded>
+<ZoneID>                 ::= <ZoneID interior>+                                              action => zone
+<IPv6addrz>              ::= <IPv6address> "%25" <ZoneID>                                    action => IPv6addrz
 
-<IPvFuture>              ::= "v" <HEXDIG many> "." <IPvFuture trailer>
+<IPvFuture>              ::= "v" <HEXDIG many> "." <IPvFuture trailer>                       action => IPvFuture
 <IPvFuture trailer unit> ::= <unreserved> | <sub delims> | ":"
 <IPvFuture trailer>      ::= <IPvFuture trailer unit>+
 
-<IPv6address>            ::=                                   <6 h16 colon> <ls32>
-                           |                              "::" <5 h16 colon> <ls32>
-                           |                      <h16>   "::" <4 h16 colon> <ls32>
-                           |                              "::" <4 h16 colon> <ls32>
-                           |   <0 to 1 h16 colon> <h16>   "::" <3 h16 colon> <ls32>
-                           |                              "::" <3 h16 colon> <ls32>
-                           |   <0 to 2 h16 colon> <h16>   "::" <2 h16 colon> <ls32>
-                           |                              "::" <2 h16 colon> <ls32>
-                           |   <0 to 3 h16 colon> <h16>   "::" <1 h16 colon> <ls32>
-                           |                              "::" <1 h16 colon> <ls32>
-                           |   <0 to 4 h16 colon> <h16>   "::"               <ls32>
-                           |                              "::"               <ls32>
-                           |   <0 to 5 h16 colon> <h16>   "::"               <h16>
-                           |                              "::"               <h16>
-                           |   <0 to 6 h16 colon> <h16>   "::"
-                           |                              "::"
+<IPv6address>            ::=                                   <6 h16 colon> <ls32>          action => IPv6address
+                           |                              "::" <5 h16 colon> <ls32>          action => IPv6address
+                           |                      <h16>   "::" <4 h16 colon> <ls32>          action => IPv6address
+                           |                              "::" <4 h16 colon> <ls32>          action => IPv6address
+                           |   <0 to 1 h16 colon> <h16>   "::" <3 h16 colon> <ls32>          action => IPv6address
+                           |                              "::" <3 h16 colon> <ls32>          action => IPv6address
+                           |   <0 to 2 h16 colon> <h16>   "::" <2 h16 colon> <ls32>          action => IPv6address
+                           |                              "::" <2 h16 colon> <ls32>          action => IPv6address
+                           |   <0 to 3 h16 colon> <h16>   "::" <1 h16 colon> <ls32>          action => IPv6address
+                           |                              "::" <1 h16 colon> <ls32>          action => IPv6address
+                           |   <0 to 4 h16 colon> <h16>   "::"               <ls32>          action => IPv6address
+                           |                              "::"               <ls32>          action => IPv6address
+                           |   <0 to 5 h16 colon> <h16>   "::"               <h16>           action => IPv6address
+                           |                              "::"               <h16>           action => IPv6address
+                           |   <0 to 6 h16 colon> <h16>   "::"                               action => IPv6address
+                           |                              "::"                               action => IPv6address
 
 <1 h16 colon>            ::= <h16> ":"
 <2 h16 colon>            ::= <h16> ":" <h16> ":"
@@ -139,18 +154,21 @@ __DATA__
 <5 h16 colon>            ::= <h16> ":" <h16> ":" <h16> ":" <h16> ":" <h16> ":"
 <6 h16 colon>            ::= <h16> ":" <h16> ":" <h16> ":" <h16> ":" <h16> ":" <h16> ":"
 
+#
+# These productions are ambiguous without ranking (rank is equivalent to make regexps greedy)
+#
 <0 to 1 h16 colon>       ::=
-<0 to 1 h16 colon>       ::= <1 h16 colon>
+<0 to 1 h16 colon>       ::= <1 h16 colon>                    rank => 1
 <0 to 2 h16 colon>       ::= <0 to 1 h16 colon>
-<0 to 2 h16 colon>       ::= <0 to 1 h16 colon> <1 h16 colon>
+<0 to 2 h16 colon>       ::= <0 to 1 h16 colon> <1 h16 colon> rank => 1
 <0 to 3 h16 colon>       ::= <0 to 2 h16 colon>
-<0 to 3 h16 colon>       ::= <0 to 2 h16 colon> <1 h16 colon>
+<0 to 3 h16 colon>       ::= <0 to 2 h16 colon> <1 h16 colon> rank => 1
 <0 to 4 h16 colon>       ::= <0 to 3 h16 colon>
-<0 to 4 h16 colon>       ::= <0 to 3 h16 colon> <1 h16 colon>
+<0 to 4 h16 colon>       ::= <0 to 3 h16 colon> <1 h16 colon> rank => 1
 <0 to 5 h16 colon>       ::= <0 to 4 h16 colon>
-<0 to 5 h16 colon>       ::= <0 to 4 h16 colon> <1 h16 colon>
+<0 to 5 h16 colon>       ::= <0 to 4 h16 colon> <1 h16 colon> rank => 1
 <0 to 6 h16 colon>       ::= <0 to 5 h16 colon>
-<0 to 6 h16 colon>       ::= <0 to 5 h16 colon> <1 h16 colon>
+<0 to 6 h16 colon>       ::= <0 to 5 h16 colon> <1 h16 colon> rank => 1
 
 <h16>                    ::= <HEXDIG>
                            | <HEXDIG> <HEXDIG>
