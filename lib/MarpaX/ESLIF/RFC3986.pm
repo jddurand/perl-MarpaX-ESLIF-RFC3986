@@ -9,6 +9,7 @@ package MarpaX::ESLIF::RFC3986;
 
 # VERSION
 
+use Carp qw/croak/;
 use MarpaX::ESLIF::RFC3986::RecognizerInterface;
 use MarpaX::ESLIF::RFC3986::ValueInterface;
 use MarpaX::ESLIF;
@@ -70,6 +71,22 @@ sub _parseByStart {
 sub is_absolute {
     # my ($self) = @_;
     return $_[0]->{is_absolute};
+}
+
+sub base {
+    my ($self) = @_;
+    #
+    # Simply this is the reconstruction of
+    # <absolute URI> ::= <scheme> ":" <hier part> <URI query>
+    #
+    # Do nothing if it is already absolute
+    #
+    if ($self->is_absolute) {
+        return $self->{'URI'} // $self->{'relative ref'}
+    } else {
+        croak 'Invalid URI' unless defined $self->{'scheme'};
+        return $self->{'scheme'} . ':' . ($self->{'hier part'} // '') . ($self->{'URI query'} // '')
+    }
 }
 
 #
