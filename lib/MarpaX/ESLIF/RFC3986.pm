@@ -37,6 +37,8 @@ sub decode {
     my ($class, $input, $encoding) = @_;
 
     my $rc             = $class->_parseByStart($input, 'URI reference', $encoding, 0);
+    $rc->{input}       = $input;
+    $rc->{encoding}    = $encoding;
     $rc->{is_absolute} = $class->_parseByStart($input, 'absolute URI',  $encoding, 1);
 
     $rc
@@ -67,20 +69,103 @@ sub base {
 
     my $self = $pkg_or_self->_self($input, $encoding);
     #
-    # Simply this is the reconstruction of
-    # <absolute URI> ::= <scheme> ":" <hier part> <URI query>
-    #
     # Do nothing if it is already absolute
     #
     if ($self->is_absolute) {
-        #
-        # So it matches: <URI reference> ::= <URI> | <relative ref>
-        #
-        return $self->URI // $self->relative_ref
+        return $self->{input}
     } else {
-        croak 'Invalid URI' unless defined($self->{'scheme'});
-        return $self->scheme . ':' . ($self->hier_part // '') . ($self->URI_query // '')
+        #
+        # So it must matches <URI>, i.e. it must have a defined scheme
+        #
+        my $scheme = $self->scheme // croak 'Scheme must be defined to get the base URI';
+        my $hier_part = $self->hier_part // '';
+        my $URI_query = $self->URI_query // '';
+        return "$scheme:$hier_part$URI_query"
     }
+}
+
+sub abs {
+    my ($R, $Base, $strict) = @_;
+    #
+    # We require they are both __PACKAGE__ instances
+    #
+    foreach ($R, $Base) {
+        croak "Argument must be a " . __PACKAGE__ . " instance"  unless (blessed($_) // '') eq __PACKAGE__
+    }
+    #
+    # ... that $R is a URI reference
+    #
+    croak "First argument must be a URI reference" unless defined($R->URI_reference);
+    #
+    # ... that $Base is an absolute URI
+    #
+    croak "Second argument is not a base URI" unless $Base->is_absolute;
+    #
+    # The URI reference is parsed into the five URI components
+    #
+    my %R = (
+        scheme    => $R->scheme,                  # Defined per def
+        authority => $R->authority,
+        path      => $R->path,                    # Always defined
+        query     => $R->query,
+        fragment  => $R->fragment
+        );
+    my %Base = (
+        scheme    => $Base->scheme,               # Defined per def
+        authority => $Base->authority,
+        path      => $Base->path,                 # Always defined
+        query     => $Base->query,
+        fragment  => $Base->fragment
+        );
+    #
+    # A non-strict parser may ignore a scheme in the reference
+    # if it is identical to the base URI's scheme.
+    #
+    if ((not $strict) and ($R{scheme} eq $Base{scheme})) {
+        $R{scheme} = undef
+    }
+
+    my %T;
+    if (defined($R{scheme})) {
+        $T{scheme}    = $R{scheme};
+        $T{authority} = $R{authority};
+        $T{path}      = remove_dot_segments($R{path});
+        $T{query}     = $R{query};
+    } else {
+        if (defined($R{authority})) {
+            $T{authority} = $R{authority};
+            $T{path}      = remove_dot_segments($R{path});
+            $T{query}     = $R{query};
+        } else {
+            if ($R{path} == "") {
+                $T{path} = $Base{path};
+                if (defined($R{query})) {
+                    $T{query} = $R{query};
+                } else {
+                    $T{query} = $Base{query};
+                }
+            } else {
+                if (substr($R{path}, 0, 1) eq '/') {
+                    $T{path} = remove_dot_segments($R{path});
+                } else {
+                    $T{path} = merge($Base{path}, $R{path});
+                    $T{path} = remove_dot_segments($T{path});
+                }
+                $T{query} = $R{query};
+            }
+            $T{authority} = $Base{authority};
+        }
+        $T{scheme} = $Base{scheme};
+    }
+    $T{fragment} = $R{fragment};
+
+    my $T  = "$T{scheme}:";  # Defined per def
+    $T    .= "//" . $T{authority} if defined $T{authority};
+    $T    .= $T{path}; # Always defined
+    $T    .= "?"  . $T{query} if defined $T{query};
+    $T    .= "#"  . $T{fragment} if defined $T{fragment};
+
+    return __PACKAGE__->new($T)
 }
 
 #
@@ -223,12 +308,12 @@ __DATA__
                            | <path empty>                                                   action => path # zero characters
 
 <path abempty unit>      ::= "/" <segment>
-<path abempty>           ::= <path abempty unit>*                                           action => path_abempty
-<path absolute>          ::= "/"                                                            action => path_absolute
-                           | "/" <segment nz> <path abempty>                                action => path_absolute
-<path noscheme>          ::= <segment nz nc> <path abempty>                                 action => path_noscheme
-<path rootless>          ::= <segment nz> <path abempty>                                    action => path_rootless
-<path empty>             ::=                                                                action => path_empty
+<path abempty>           ::= <path abempty unit>*                                           action => path
+<path absolute>          ::= "/"                                                            action => path
+                           | "/" <segment nz> <path abempty>                                action => path
+<path noscheme>          ::= <segment nz nc> <path abempty>                                 action => path
+<path rootless>          ::= <segment nz> <path abempty>                                    action => path
+<path empty>             ::=                                                                action => path
 
 <segment>                ::= <pchar>*                                                       action => segment
 <segment nz>             ::= <pchar>+                                                       action => segment_nz
