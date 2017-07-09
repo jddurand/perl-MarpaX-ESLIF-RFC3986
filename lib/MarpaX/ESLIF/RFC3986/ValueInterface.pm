@@ -116,17 +116,7 @@ L<MarpaX::ESLIF::RFC3986>
 sub URI_reference { $_[0]->{work} }
 sub absolute_URI  { $_[0]->{work} }
 #
-# ... Percent encoded character
-#
-sub pct_encoded   { # <pct encoded> ::= "%" <HEXDIG> <HEXDIG>
-    return chr(oct("0x$_[2]$_[3]"))
-}
-#
-# ... Components actions
-#
-sub _concat  { my ($self, $what, @args) = @_; $self->{work}->{$what} = join('', @args) }
-#
-# ... Percent-encoded character
+# ... Supported components
 #
 my %_MAP = (
     'URI'                => 'URI',
@@ -164,7 +154,19 @@ my %_MAP = (
             
 foreach my $subname (keys %_MAP) {
     my $exported = $_MAP{$subname};
-    eval "sub $subname { my (\$self, \@args) = \@_; \$self->{work}->{'$exported'} = join('', \@args) }"
+    eval "sub $subname {
+            my (\$self, \@args) = \@_;
+            my \$string = join('', \@args);
+            \$string =~ s/%([0-9A-Fa-f]{2})/chr(hex(\$1))/eg; # C.f. URI::Escape
+            \$self->{work}->{'$exported'} = \$string
+          }"
+}
+
+#
+# Static method exporting all supported components
+#
+sub components {
+    return values %_MAP
 }
 
 1;

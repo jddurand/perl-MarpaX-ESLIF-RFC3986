@@ -49,7 +49,6 @@ sub new {
 
   my $self = {};
   $self                 = _parseByStart($input, 'URI reference', $encoding, 0);
-  $self->{is_reference} = keys %{$self} ? 1 : 0;
   $self->{is_absolute}  = _parseByStart($input, 'absolute URI',  $encoding, 1);
   bless $self, $pkg
 }
@@ -69,13 +68,15 @@ sub _parseByStart {
 }
 
 sub is_absolute {
-    my ($self) = @_;
-    return $self->{is_absolute};
+    # my ($self) = @_;
+    return $_[0]->{is_absolute};
 }
 
-sub is_reference {
-    my ($self) = @_;
-    return $self->{is_reference};
+#
+# Accessor to all all components supported
+#
+foreach (MarpaX::ESLIF::RFC3986::ValueInterface->components) {
+    eval "sub $_ { return \$_[0]->{$_} }" # Okay it is autovivifies to undef
 }
 
 1;
@@ -136,7 +137,7 @@ __DATA__
 <IP literal>             ::= "[" <IP literal interior> "]"                                   action => IP_literal
 <ZoneID interior>        ::= <unreserved>  | <pct encoded>
 <ZoneID>                 ::= <ZoneID interior>+                                              action => ZoneID
-<IPv6addrz>              ::= <IPv6address> <PERCENT ENCODED> <ZoneID>                        action => IPv6addrz
+<IPv6addrz>              ::= <IPv6address> "%25" <ZoneID>                        action => IPv6addrz
 
 <IPvFuture>              ::= "v" <HEXDIG many> "." <IPvFuture trailer>                       action => IPvFuture
 <IPvFuture trailer unit> ::= <unreserved> | <sub delims> | ":"
@@ -226,7 +227,7 @@ __DATA__
 <fragment unit>          ::= <pchar> | "/" | "?"
 <fragment>               ::= <fragment unit>*                                               action => fragment
 
-<pct encoded>            ::= "%" <HEXDIG> <HEXDIG>                                          action => pct_encoded
+<pct encoded>            ::= "%" <HEXDIG> <HEXDIG>
 
 <unreserved>             ::= <ALPHA> | <DIGIT> | "-" | "." | "_" | "~"
 <reserved>               ::= <gen delims> | <sub delims>
@@ -238,4 +239,3 @@ __DATA__
 <ALPHA>                  ::= [A-Za-z]
 <DIGIT>                  ::= [0-9]
 <HEXDIG>                 ::= [0-9A-Fa-f]          # case insensitive
-<PERCENT ENCODED>        ::= "%25"                                                          action => pct_encoded
