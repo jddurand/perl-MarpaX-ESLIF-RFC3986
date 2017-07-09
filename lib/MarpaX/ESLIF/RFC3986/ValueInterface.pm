@@ -113,38 +113,58 @@ L<MarpaX::ESLIF::RFC3986>
 #
 # ... Special actions so that setResult gets $self->{work}
 #
-sub reference { $_[0]->{work} }
+sub URI_reference { $_[0]->{work} }
+sub absolute_URI  { $_[0]->{work} }
 #
-# ... All other actions are just bookkeeping current concatenation into $self->{workwork}
+# ... Percent encoded character
 #
-our @_ACTIONS = (
-                 'URI',
-                 'query',
-                 'fragment',
-                 'hier_part',
-                 'absolute',
-                 'relative',
-                 'part',
-                 'scheme',
-                 'authority',
-                 'userinfo',
-                 'host',
-                 'port',
-                 'path',
-                 'IP_literal',
-                 'IPv4address',
-                 'IPv6address',
-                 'IPv6addrz',
-                 'IPvFuture',
-                 'reg_name',
-                 'zone',
-                );
-foreach my $action (@_ACTIONS) {
-  my $stub = "sub $action {
-                my \$self = shift;
-                \$self->{work}->{'$action'} = join('', map { \$_ // '' } \@_)
-              }";
-  eval $stub
+sub pct_encoded   { # <pct encoded> ::= "%" <HEXDIG> <HEXDIG>
+    return chr(oct("0x$_[2]$_[3]"))
+}
+#
+# ... Components actions
+#
+sub _concat  { my ($self, $what, @args) = @_; $self->{work}->{$what} = join('', @args) }
+#
+# ... Percent-encoded character
+#
+my %_MAP = (
+    'URI'                => 'URI',
+    'URI_query'          => 'URI query',
+    'URI_fragment'       => 'URI fragment',
+    'hier_part'          => 'hier part',
+    'URI_reference'      => 'URI reference',
+    'relative_ref'       => 'relative ref',
+    'relative_part'      => 'relative part',
+    'scheme'             => 'scheme',
+    'authority_userinfo' => 'authority userinfo',
+    'authority_port'     => 'authority port',
+    'authority'          => 'authority',
+    'userinfo'           => 'userinfo',
+    'host'               => 'host',
+    'port'               => 'port',
+    'IP_literal'         => 'IP literal',
+    'ZoneID'             => 'zone',
+    'IPv6addrz'          => 'IPv6addrz',
+    'IPvFuture'          => 'IPvFuture',
+    'IPv6address'        => 'IPv6address',
+    'IPv4address'        => 'IPv4address',
+    'reg_name'           => 'reg name',
+    'path'               => 'path',
+    'path_abempty'       => 'path abempty',
+    'path_absolute'      => 'path absolute',
+    'path_noscheme'      => 'path noscheme',
+    'path_rootless'      => 'path rootless',
+    'segment'            => 'segment',
+    'segment_nz'         => 'segment nz',
+    'segment_nz_nc'      => 'segment nz nc',
+    'query'              => 'query',
+    'fragment'           => 'fragment'
+    );
+            
+foreach my $subname (keys %_MAP) {
+    my $exported = $_MAP{$subname};
+    eval "sub $subname { my (\$self, \@args) = \@_; \$self->{work}->{'$exported'} = join('', \@args) }"
 }
 
 1;

@@ -17,10 +17,8 @@ use IO::Handle;
 use Log::Log4perl qw/:easy/;
 use Log::Any::Adapter;
 use Log::Any qw/$log/;
-
 autoflush STDOUT 1;
 autoflush STDERR 1;
-
 #
 # Init log
 #
@@ -34,77 +32,91 @@ our $defaultLog4perlConf = '
 Log::Log4perl::init(\$defaultLog4perlConf);
 Log::Any::Adapter->set('Log4perl');
 
-our $_BNF = do { local $/; <DATA> };
-our $_ESLIF = MarpaX::ESLIF->new($log);
-our $_G = MarpaX::ESLIF::Grammar->new($_ESLIF, $_BNF);
+my $_ESLIF = MarpaX::ESLIF->new($log);
+my @_START = ('URI reference', 'absolute URI');
+my $_DATA  = do { local $/; <DATA> };
+
+our %_BNF;
+our %_G;
+foreach my $start (@_START) {
+    $_BNF{$start} = $_DATA;
+    $_BNF{$start} =~ s/\$START/<$start>/;
+    $_G{$start}   = MarpaX::ESLIF::Grammar->new($_ESLIF, $_BNF{$start});
+}
 
 sub new {
   my ($pkg, $input, $encoding) = @_;
 
-  bless _parse($input, $encoding), $pkg
+  my $self = {};
+  $self                 = _parseByStart($input, 'URI reference', $encoding, 0);
+  $self->{is_reference} = keys %{$self} ? 1 : 0;
+  $self->{is_absolute}  = _parseByStart($input, 'absolute URI',  $encoding, 1);
+  bless $self, $pkg
 }
 
-sub _parse {
-    my ($input, $encoding) = @_;
+sub _parseByStart {
+    my ($input, $start, $encoding, $boolean) = @_;
 
     my $recognizerInterface = MarpaX::ESLIF::RFC3986::RecognizerInterface->new(data => $input, encoding => $encoding);
     my $valueInterface = MarpaX::ESLIF::RFC3986::ValueInterface->new();
 
-    if (0) {
-        my $recognizer = MarpaX::ESLIF::Recognizer->new($_G, $recognizerInterface);
-        $recognizer->scan();
-        my $value = MarpaX::ESLIF::Value->new($recognizer, $valueInterface);
-        my $i = 0;
-        while ($value->value() > 0) {
-            use Data::Dumper;
-            print STDERR "VALUE No " . ++$i . ":\n" . Dumper($valueInterface->getResult);
-        }
-    }
+    my $value = eval {
+        $_G{$start}->parse($recognizerInterface, $valueInterface);
+        $valueInterface->getResult
+    };
 
-    $_G->parse($recognizerInterface, $valueInterface);
+    return $boolean ? ($value ? 1 : 0) : $value
+}
 
-    $valueInterface->getResult
+sub is_absolute {
+    my ($self) = @_;
+    return $self->{is_absolute};
+}
+
+sub is_reference {
+    my ($self) = @_;
+    return $self->{is_reference};
 }
 
 1;
 
 __DATA__
-:start ::= <URI reference>
+:start ::= $START
 #
 # Reference: https://tools.ietf.org/html/rfc3986#appendix-A
 # Reference: https://tools.ietf.org/html/rfc6874
 #
 <URI>                    ::= <scheme> ":" <hier part> <URI query> <URI fragment>             action => URI
-<URI query>              ::= "?" <query>                                                     action => query
-<URI query>              ::=                                                                 action => query
-<URI fragment>           ::= "#" <fragment>                                                  action => fragment
-<URI fragment>           ::=                                                                 action => fragment
+<URI query>              ::= "?" <query>                                                     action => URI_query
+<URI query>              ::=                                                                 action => URI_query
+<URI fragment>           ::= "#" <fragment>                                                  action => URI_fragment
+<URI fragment>           ::=                                                                 action => URI_fragment
 
 <hier part>              ::= "//" <authority> <path abempty>                                 action => hier_part
                            | <path absolute>                                                 action => hier_part
                            | <path rootless>                                                 action => hier_part
                            | <path empty>                                                    action => hier_part
 
-<URI reference>          ::= <URI>                                                           action => reference
-                           | <relative ref>                                                  action => reference
+<URI reference>          ::= <URI>                                                           action => URI_reference
+                           | <relative ref>                                                  action => URI_reference
 
-<absolute URI>           ::= <scheme> ":" <hier part> <URI query>                            action => absolute
+<absolute URI>           ::= <scheme> ":" <hier part> <URI query>                            action => absolute_URI
 
-<relative ref>           ::= <relative part> <URI query> <URI fragment>                      action => relative
+<relative ref>           ::= <relative part> <URI query> <URI fragment>                      action => relative_ref
 
-<relative part>          ::= "//" <authority> <path abempty>                                 action => part
-                           | <path absolute>                                                 action => part
-                           | <path noscheme>                                                 action => part
-                           | <path empty>                                                    action => part
+<relative part>          ::= "//" <authority> <path abempty>                                 action => relative_part
+                           | <path absolute>                                                 action => relative_part
+                           | <path noscheme>                                                 action => relative_part
+                           | <path empty>                                                    action => relative_part
 
 <scheme>                 ::= <ALPHA> <scheme trailer>                                        action => scheme
 <scheme trailer unit>    ::= <ALPHA> | <DIGIT> | "+" | "-" | "."
 <scheme trailer>         ::= <scheme trailer unit>*
 
-<authority userinfo>     ::= <userinfo> "@"
-<authority userinfo>     ::=
-<authority port>         ::= ":" <port>
-<authority port>         ::=
+<authority userinfo>     ::= <userinfo> "@"                                                  action => authority_userinfo
+<authority userinfo>     ::=                                                                 action => authority_userinfo
+<authority port>         ::= ":" <port>                                                      action => authority_port
+<authority port>         ::=                                                                 action => authority_port
 <authority>              ::= <authority userinfo> <host> <authority port>                    action => authority
 <userinfo unit>          ::= <unreserved> | <pct encoded> | <sub delims> | ":"
 <userinfo>               ::= <userinfo unit>*                                                action => userinfo
@@ -123,8 +135,8 @@ __DATA__
 <IP literal interior>    ::= <IPv6address> | <IPv6addrz> | <IPvFuture>
 <IP literal>             ::= "[" <IP literal interior> "]"                                   action => IP_literal
 <ZoneID interior>        ::= <unreserved>  | <pct encoded>
-<ZoneID>                 ::= <ZoneID interior>+                                              action => zone
-<IPv6addrz>              ::= <IPv6address> "%25" <ZoneID>                                    action => IPv6addrz
+<ZoneID>                 ::= <ZoneID interior>+                                              action => ZoneID
+<IPv6addrz>              ::= <IPv6address> <PERCENT ENCODED> <ZoneID>                        action => IPv6addrz
 
 <IPvFuture>              ::= "v" <HEXDIG many> "." <IPvFuture trailer>                       action => IPvFuture
 <IPvFuture trailer unit> ::= <unreserved> | <sub delims> | ":"
@@ -187,34 +199,34 @@ __DATA__
 <reg name unit>          ::= <unreserved> | <pct encoded> | <sub delims>
 <reg name>               ::= <reg name unit>*                                               action => reg_name
 
-<path>                   ::= <path abempty>              # begins with "/" or is empty
-                           | <path absolute>             # begins with "/" but not "//"
-                           | <path noscheme>             # begins with a non-colon segment
-                           | <path rootless>             # begins with a segment
-                           | <path empty>                # zero characters
+<path>                   ::= <path abempty>                                                 action => path # begins with "/" or is empty
+                           | <path absolute>                                                action => path # begins with "/" but not "//"
+                           | <path noscheme>                                                action => path # begins with a non-colon segment
+                           | <path rootless>                                                action => path # begins with a segment
+                           | <path empty>                                                   action => path # zero characters
 
 <path abempty unit>      ::= "/" <segment>
-<path abempty>           ::= <path abempty unit>*
-<path absolute>          ::= "/"
-<path absolute>          ::= "/" <segment nz> <path abempty>
-<path noscheme>          ::= <segment nz nc> <path abempty>
-<path rootless>          ::= <segment nz> <path abempty>
-<path empty>             ::=
+<path abempty>           ::= <path abempty unit>*                                           action => path_abempty
+<path absolute>          ::= "/"                                                            action => path_absolute
+<path absolute>          ::= "/" <segment nz> <path abempty>                                action => path_absolute
+<path noscheme>          ::= <segment nz nc> <path abempty>                                 action => path_noscheme
+<path rootless>          ::= <segment nz> <path abempty>                                    action => path_rootless
+<path empty>             ::=                                                                action => path_empty
 
-<segment>                ::= <pchar>*
-<segment nz>             ::= <pchar>+
+<segment>                ::= <pchar>*                                                       action => segment
+<segment nz>             ::= <pchar>+                                                       action => segment_nz
 <segment nz nc unit>     ::= <unreserved> | <pct encoded> | <sub delims> | "@" # non-zero-length segment without any colon ":"
-<segment nz nc>          ::= <segment nz nc unit>+
+<segment nz nc>          ::= <segment nz nc unit>+                                          action => segment_nz_nc
 
 <pchar>                  ::= <unreserved> | <pct encoded> | <sub delims> | ":" | "@"
 
 <query unit>             ::= <pchar> | "/" | "?"
-<query>                  ::= <query unit>*
+<query>                  ::= <query unit>*                                                  action => query
 
 <fragment unit>          ::= <pchar> | "/" | "?"
-<fragment>               ::= <fragment unit>*
+<fragment>               ::= <fragment unit>*                                               action => fragment
 
-<pct encoded>            ::= "%" <HEXDIG> <HEXDIG>
+<pct encoded>            ::= "%" <HEXDIG> <HEXDIG>                                          action => pct_encoded
 
 <unreserved>             ::= <ALPHA> | <DIGIT> | "-" | "." | "_" | "~"
 <reserved>               ::= <gen delims> | <sub delims>
@@ -226,3 +238,4 @@ __DATA__
 <ALPHA>                  ::= [A-Za-z]
 <DIGIT>                  ::= [0-9]
 <HEXDIG>                 ::= [0-9A-Fa-f]          # case insensitive
+<PERCENT ENCODED>        ::= "%25"                                                          action => pct_encoded
