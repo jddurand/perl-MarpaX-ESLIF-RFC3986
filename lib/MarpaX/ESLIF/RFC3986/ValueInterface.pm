@@ -118,47 +118,46 @@ sub absolute_URI  { $_[0]->{work} }
 #
 # ... Supported components
 #
-my %_MAP = (
-    'URI'                => 'URI',
-    'URI_query'          => 'URI query',
-    'URI_fragment'       => 'URI fragment',
-    'hier_part'          => 'hier part',
-    'URI_reference'      => 'URI reference',
-    'relative_ref'       => 'relative ref',
-    'relative_part'      => 'relative part',
-    'scheme'             => 'scheme',
-    'authority_userinfo' => 'authority userinfo',
-    'authority_port'     => 'authority port',
-    'authority'          => 'authority',
-    'userinfo'           => 'userinfo',
-    'host'               => 'host',
-    'port'               => 'port',
-    'IP_literal'         => 'IP literal',
-    'ZoneID'             => 'zone',
-    'IPv6addrz'          => 'IPv6addrz',
-    'IPvFuture'          => 'IPvFuture',
-    'IPv6address'        => 'IPv6address',
-    'IPv4address'        => 'IPv4address',
-    'reg_name'           => 'reg name',
-    'path'               => 'path',
-    'path_abempty'       => 'path abempty',
-    'path_absolute'      => 'path absolute',
-    'path_noscheme'      => 'path noscheme',
-    'path_rootless'      => 'path rootless',
-    'segment'            => 'segment',
-    'segment_nz'         => 'segment nz',
-    'segment_nz_nc'      => 'segment nz nc',
-    'query'              => 'query',
-    'fragment'           => 'fragment'
+my @_COMPONENTS = (
+    'URI',
+    'URI_query',
+    'URI_fragment',
+    'hier_part',
+    'URI_reference',
+    'relative_ref',
+    'relative_part',
+    'scheme',
+    'authority_userinfo',
+    'authority_port',
+    'authority',
+    'userinfo',
+    'host',
+    'port',
+    'IP_literal',
+    'ZoneID',
+    'IPv6addrz',
+    'IPvFuture',
+    'IPv6address',
+    'IPv4address',
+    'reg_name',
+    'path',
+    'path_abempty',
+    'path_absolute',
+    'path_noscheme',
+    'path_rootless',
+    'segment',
+    'segment_nz',
+    'segment_nz_nc',
+    'query',
+    'fragment'
     );
             
-foreach my $subname (keys %_MAP) {
-    my $exported = $_MAP{$subname};
-    eval "sub $subname {
+foreach my $component (@_COMPONENTS) {
+    eval "sub $component {
             my (\$self, \@args) = \@_;
             my \$string = join('', \@args);
             \$string =~ s/%([0-9A-Fa-f]{2})/chr(hex(\$1))/eg; # C.f. URI::Escape
-            \$self->{work}->{'$exported'} = \$string
+            \$self->{work}->{$component} = \$string
           }"
 }
 
@@ -166,7 +165,7 @@ foreach my $subname (keys %_MAP) {
 # Static method exporting all supported components
 #
 sub components {
-    return values %_MAP
+    return values @_COMPONENTS
 }
 
 1;

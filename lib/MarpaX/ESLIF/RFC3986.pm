@@ -13,27 +13,9 @@ use Carp qw/croak/;
 use MarpaX::ESLIF::RFC3986::RecognizerInterface;
 use MarpaX::ESLIF::RFC3986::ValueInterface;
 use MarpaX::ESLIF;
+use Scalar::Util qw/blessed/;
 
-use IO::Handle;
-use Log::Log4perl qw/:easy/;
-use Log::Any::Adapter;
-use Log::Any qw/$log/;
-autoflush STDOUT 1;
-autoflush STDERR 1;
-#
-# Init log
-#
-our $defaultLog4perlConf = '
-        log4perl.rootLogger              = TRACE, Screen
-        log4perl.appender.Screen         = Log::Log4perl::Appender::Screen
-        log4perl.appender.Screen.stderr  = 0
-        log4perl.appender.Screen.layout  = PatternLayout
-        log4perl.appender.Screen.layout.ConversionPattern = %d %-5p %6P %m{chomp}%n
-        ';
-Log::Log4perl::init(\$defaultLog4perlConf);
-Log::Any::Adapter->set('Log4perl');
-
-my $_ESLIF = MarpaX::ESLIF->new($log);
+my $_ESLIF = MarpaX::ESLIF->new();
 my @_START = ('URI reference', 'absolute URI');
 my $_DATA  = do { local $/; <DATA> };
 
@@ -48,14 +30,20 @@ foreach my $start (@_START) {
 sub new {
   my ($pkg, $input, $encoding) = @_;
 
-  my $self = {};
-  $self                 = _parseByStart($input, 'URI reference', $encoding, 0);
-  $self->{is_absolute}  = _parseByStart($input, 'absolute URI',  $encoding, 1);
-  bless $self, $pkg
+  bless $pkg->decode($input, $encoding), $pkg
+}
+
+sub decode {
+    my ($class, $input, $encoding) = @_;
+
+    my $rc             = $class->_parseByStart($input, 'URI reference', $encoding, 0);
+    $rc->{is_absolute} = $class->_parseByStart($input, 'absolute URI',  $encoding, 1);
+
+    $rc
 }
 
 sub _parseByStart {
-    my ($input, $start, $encoding, $boolean) = @_;
+    my ($class, $input, $start, $encoding, $boolean) = @_;
 
     my $recognizerInterface = MarpaX::ESLIF::RFC3986::RecognizerInterface->new(data => $input, encoding => $encoding);
     my $valueInterface = MarpaX::ESLIF::RFC3986::ValueInterface->new();
@@ -68,13 +56,16 @@ sub _parseByStart {
     return $boolean ? ($value ? 1 : 0) : $value
 }
 
-sub is_absolute {
-    # my ($self) = @_;
-    return $_[0]->{is_absolute};
+sub _self {
+    my ($pkg_or_self, $input, $encoding) = @_;
+
+    ((blessed($pkg_or_self) // '') eq __PACKAGE__) ? $pkg_or_self : __PACKAGE__->new($input, $encoding);
 }
 
 sub base {
-    my ($self) = @_;
+    my ($pkg_or_self, $input, $encoding) = @_;
+
+    my $self = $pkg_or_self->_self($input, $encoding);
     #
     # Simply this is the reconstruction of
     # <absolute URI> ::= <scheme> ":" <hier part> <URI query>
@@ -82,18 +73,26 @@ sub base {
     # Do nothing if it is already absolute
     #
     if ($self->is_absolute) {
-        return $self->{'URI'} // $self->{'relative ref'}
+        #
+        # So it matches: <URI reference> ::= <URI> | <relative ref>
+        #
+        return $self->URI // $self->relative_ref
     } else {
-        croak 'Invalid URI' unless defined $self->{'scheme'};
-        return $self->{'scheme'} . ':' . ($self->{'hier part'} // '') . ($self->{'URI query'} // '')
+        croak 'Invalid URI' unless defined($self->{'scheme'});
+        return $self->scheme . ':' . ($self->hier_part // '') . ($self->URI_query // '')
     }
 }
 
 #
-# Accessor to all all components supported
+# Accessor to all components supported + is_absolute
 #
-foreach (MarpaX::ESLIF::RFC3986::ValueInterface->components) {
-    eval "sub $_ { return \$_[0]->{$_} }" # Okay it is autovivifies to undef
+foreach my $component ('is_absolute', MarpaX::ESLIF::RFC3986::ValueInterface->components) {
+    eval "sub $component {
+            my (\$pkg_or_self, \$input, \$encoding) = \@_;
+
+            my \$self = \$pkg_or_self->_self(\$input, \$encoding);
+            return \$self->{$component}  # Okay it is autovivifies to undef
+          }"
 }
 
 1;
@@ -226,7 +225,7 @@ __DATA__
 <path abempty unit>      ::= "/" <segment>
 <path abempty>           ::= <path abempty unit>*                                           action => path_abempty
 <path absolute>          ::= "/"                                                            action => path_absolute
-<path absolute>          ::= "/" <segment nz> <path abempty>                                action => path_absolute
+                           | "/" <segment nz> <path abempty>                                action => path_absolute
 <path noscheme>          ::= <segment nz nc> <path abempty>                                 action => path_noscheme
 <path rootless>          ::= <segment nz> <path abempty>                                    action => path_rootless
 <path empty>             ::=                                                                action => path_empty

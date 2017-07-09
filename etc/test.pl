@@ -10,7 +10,7 @@ my ($input, $encoding) = @ARGV;
 my $rfc3986 = MarpaX::ESLIF::RFC3986->new($input, $encoding);
 print Dumper($rfc3986);
 
-foreach ('scheme') {
-    printf "%s ==> %s\n", $_, $rfc3986->$_ // '<undef>'
+foreach ('is_absolute', 'base', MarpaX::ESLIF::RFC3986::ValueInterface->components) {
+    printf "%s via self ==> %s\n", $_, $rfc3986->$_ // '<undef>';
+    printf "%s via pkg  ==> %s\n", $_, MarpaX::ESLIF::RFC3986->$_($input, $encoding) // '<undef>';
 }
-printf "Base ==> %s\n", $rfc3986->base;
